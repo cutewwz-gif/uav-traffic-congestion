@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UAV 道路拥堵实时分析</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a222c;
+      --line: #2a3542;
+      --accent: #3d8bfd;
+      --ok: #3dd68c;
+      --warn: #f5a524;
+      --danger: #f31260;
+      --text: #e8eef4;
+      --muted: #8b9aab;
+    }
+    body {
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #1b2a3a 0%, transparent 55%),
+        radial-gradient(900px 500px at 100% 0%, #1a2830 0%, transparent 50%),
+        var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    .panel {
+      background: color-mix(in srgb, var(--panel) 92%, black);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+    }
+    .stream-frame {
+      background: #0a0e13;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      min-height: 280px;
+      height: calc(100vh - 34rem);
+      max-height: 46vh;
+    }
+    .stream-frame img {
+      width: 100%;
+      height: 100%;
+      min-height: 280px;
+      display: block;
+      object-fit: contain;
+      background: #0a0e13;
+    }
+    .chart-wrap {
+      height: 220px;
+    }
+    .sidebar-scroll {
+      max-height: calc(100vh - 7rem);
+      overflow-y: auto;
+    }
+    input[type="range"] { accent-color: var(--accent); }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border: 1px solid transparent;
+    }
+    .badge::before {
+      content: "";
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 8px currentColor;
+    }
+    .badge-a { color: var(--ok); background: rgba(61,214,140,.12); border-color: rgba(61,214,140,.35); }
+    .badge-b { color: var(--warn); background: rgba(245,165,36,.12); border-color: rgba(245,165,36,.35); }
+    .badge-c { color: var(--danger); background: rgba(243,18,96,.12); border-color: rgba(243,18,96,.35); }
+    .badge-d { color: #7aa2ff; background: rgba(122,162,255,.12); border-color: rgba(122,162,255,.35); }
+    .badge-e { color: #45d1d1; background: rgba(69,209,209,.12); border-color: rgba(69,209,209,.35); }
+    .badge-x { color: var(--muted); background: rgba(139,154,171,.12); border-color: rgba(139,154,171,.3); }
+    .stat-num { font-variant-numeric: tabular-nums; font-weight: 700; letter-spacing: -0.02em; }
+    .btn {
+      border-radius: 10px;
+      padding: 0.65rem 1rem;
+      font-weight: 600;
+      transition: transform .12s ease, opacity .12s ease, background .12s ease;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <div class="max-w-[1920px] mx-auto px-4 py-4 lg:px-6">
+    <header class="mb-4 flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <p class="text-xs uppercase tracking-[0.2em] text-[var(--muted)] mb-1">UAV Traffic Analysis</p>
+        <h1 class="text-2xl md:text-3xl font-semibold tracking-tight">道路拥堵实时分析系统</h1>
+      </div>
+      <div class="flex items-center gap-3 text-sm text-[var(--muted)]">
+        <span id="scenarioBadge" class="badge badge-x">就绪</span>
+        <span id="connDot" class="inline-block w-2.5 h-2.5 rounded-full bg-red-500"></span>
+        <span id="connText">WebSocket 未连接</span>
+        <span id="procFps" class="stat-num">FPS —</span>
+      </div>
+    </header>
+
+    <!-- 上区：左控制 + 右视频/指标（不遮挡画面） -->
+    <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 mb-4">
+      <aside class="xl:col-span-3 panel p-4 space-y-4 sidebar-scroll">
+        <section>
+          <label class="block text-sm text-[var(--muted)] mb-1.5">YOLO 模型（优先 ONNX）</label>
+          <select id="modelSelect" class="w-full rounded-lg bg-[#0f151c] border border-[var(--line)] px-3 py-2.5 text-sm"></select>
+        </section>
+
+        <section>
+          <label class="block text-sm text-[var(--muted)] mb-1.5">测试视频</label>
+          <select id="videoSelect" class="w-full rounded-lg bg-[#0f151c] border border-[var(--line)] px-3 py-2.5 text-sm mb-2"></select>
+          <label class="btn w-full text-center block cursor-pointer bg-[#243041] hover:bg-[#2c3a4d] text-sm">
+            上传视频
+            <input id="videoUpload" type="file" accept="video/*" class="hidden" />
+          </label>
+        </section>
+
+        <section class="grid grid-cols-3 gap-2">
+          <button id="btnStart" class="btn bg-[var(--accent)] hover:brightness-110 text-white">开始</button>
+          <button id="btnPause" class="btn bg-[#243041] hover:bg-[#2c3a4d]" disabled>暂停</button>
+          <button id="btnReset" class="btn bg-[#3a2228] hover:bg-[#4a2a32] text-[#ffb4c0]">重置</button>
+        </section>
+
+        <section class="p-3 rounded-lg border border-[var(--line)] bg-[#121820] space-y-2">
+          <label class="flex items-center gap-2 text-sm cursor-pointer">
+            <input id="stepModeToggle" type="checkbox" class="accent-[var(--accent)]" />
+            <span>逐帧调试模式</span>
+          </label>
+          <button id="btnStepNext" class="btn w-full bg-[#1e3a2f] hover:bg-[#254a3a] text-[#8fe8b8] text-sm" disabled>
+            下一帧 →
+          </button>
+          <p id="stepHint" class="text-xs text-[var(--muted)] leading-relaxed">
+            开启后每次只处理一帧；点击「下一帧」或按键盘 → 前进。适合对照调试面板逐项排查。
+          </p>
+        </section>
+
+        <section class="p-3 rounded-lg border border-[var(--line)] bg-[#121820] space-y-2">
+          <h2 class="text-sm font-semibold text-[var(--muted)]">数据导出</h2>
+          <button id="btnExportCsv" class="btn w-full bg-[#1a2a3a] hover:bg-[#243848] text-sm">
+            导出 CSV 表
+          </button>
+          <p id="exportHint" class="text-xs text-[var(--muted)]">
+            已记录 <span id="exportCount" class="stat-num text-[var(--text)]">0</span> 帧，含全部中间量
+          </p>
+        </section>
+
+        <section class="space-y-3 pt-2 border-t border-[var(--line)]">
+          <h2 class="text-sm font-semibold text-[var(--muted)]">参数微调</h2>
+          <div data-param="window_seconds" data-min="1" data-max="10" data-step="0.5" data-label="滑动窗口 (秒)"></div>
+          <div data-param="index_alpha" data-min="0" data-max="1" data-step="0.05" data-label="α 速度权重"></div>
+          <div data-param="index_beta" data-min="0" data-max="1" data-step="0.05" data-label="β 波动权重"></div>
+          <div data-param="ema_alpha" data-min="0.05" data-max="1" data-step="0.05" data-label="坐标平滑 EMA α"></div>
+          <div data-param="deadzone" data-min="0" data-max="10" data-step="0.5" data-label="死区 (px)"></div>
+          <div data-param="speed_threshold" data-min="0" data-max="5" data-step="0.1" data-label="近零速度阈值"></div>
+          <div data-param="v_high" data-min="1" data-max="30" data-step="0.5" data-label="畅通速度 V_high"></div>
+          <div data-param="sigma_low" data-min="0" data-max="30" data-step="0.5" data-label="σ_low"></div>
+          <div data-param="sigma_high" data-min="1" data-max="60" data-step="0.5" data-label="σ_high"></div>
+          <div data-param="conf" data-min="0.05" data-max="0.9" data-step="0.05" data-label="检测置信度"></div>
+          <div data-param="max_long_edge" data-min="320" data-max="1280" data-step="64" data-label="推理长边限制"></div>
+        </section>
+      </aside>
+
+      <!-- 右上：视频 → 指标 → 图表（首屏）；调试面板在图表下方需滚动 -->
+      <div class="xl:col-span-9 flex flex-col gap-4 min-h-0">
+        <div class="panel p-2 flex flex-col shrink-0">
+          <div class="flex items-center justify-between mb-1 px-2 pt-1">
+            <h2 class="text-sm font-semibold text-[var(--muted)]">实时视频流</h2>
+            <span class="text-xs text-[var(--muted)]">仅检测框 · 无文字叠加</span>
+          </div>
+          <div class="stream-frame flex-1">
+            <img id="videoStream" src="/video_feed" alt="analysis stream" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 shrink-0">
+          <div class="panel p-3">
+            <div class="text-xs text-[var(--muted)] mb-1">拥堵指数 C_t</div>
+            <div id="statCt" class="stat-num text-3xl text-[var(--accent)]">0.0</div>
+          </div>
+          <div class="panel p-3">
+            <div class="text-xs text-[var(--muted)] mb-1">平均速度 V_avg</div>
+            <div id="statV" class="stat-num text-3xl">0.00</div>
+          </div>
+          <div class="panel p-3">
+            <div class="text-xs text-[var(--muted)] mb-1">车距波动 σ_dist</div>
+            <div id="statSig" class="stat-num text-3xl">0.00</div>
+          </div>
+          <div class="panel p-3">
+            <div class="text-xs text-[var(--muted)] mb-1">车辆数</div>
+            <div id="statN" class="stat-num text-3xl">0</div>
+          </div>
+        </div>
+
+        <section class="panel p-4 shrink-0">
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="text-sm font-semibold text-[var(--muted)]">拥堵指数 C_t（近 90 秒 · &lt;60 畅通 / ≥60 拥堵）</h2>
+            <span id="chartHint" class="text-xs text-[var(--muted)]">0 pts</span>
+          </div>
+          <div class="chart-wrap relative">
+            <canvas id="ctChart"></canvas>
+          </div>
+          <p class="text-xs text-[var(--muted)] mt-1.5 leading-relaxed">
+            线性时间轴滚动窗口 90 秒；纵轴 0–75 压缩显示。橙色虚线为 60 分阈值。
+          </p>
+        </section>
+
+        <div class="panel p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-semibold text-[var(--muted)]">算法调试量（中间计算）</h2>
+            <label class="text-xs text-[var(--muted)] flex items-center gap-2 cursor-pointer">
+              <input id="debugToggle" type="checkbox" checked class="accent-[var(--accent)]" />
+              显示
+            </label>
+          </div>
+          <div id="debugPanel" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-2 text-xs font-mono">
+            <div class="text-[var(--muted)]">raw 原始分</div><div id="dbgRaw" class="stat-num text-[var(--text)]">—</div>
+            <div class="text-[var(--muted)]">D_t 帧车距</div><div id="dbgDt" class="stat-num">—</div>
+            <div class="text-[var(--muted)]">WinMean 窗均距</div><div id="dbgWinMean" class="stat-num">—</div>
+            <div class="text-[var(--muted)]">WinLen 窗样本</div><div id="dbgWinLen" class="stat-num">—</div>
+            <div class="text-[var(--muted)]">σ_dist 波动</div><div id="dbgSig" class="stat-num">—</div>
+            <div class="text-[var(--muted)]">σ_static 静止</div><div id="dbgSigSt" class="stat-num">—</div>
+            <div class="text-[var(--muted)]">V_avg 均速</div><div id="dbgVavg" class="stat-num">—</div>
+            <div class="text-[var(--muted)]">V_mov 动组速</div><div id="dbgVmov" class="stat-num">—</div>
+            <div class="text-[var(--muted)]">r_stop 静止比</div><div id="dbgRstop" class="stat-num">—</div>
+            <div class="text-[var(--muted)]">Platoons 车队</div><div id="dbgPlatoons" class="stat-num">—</div>
+            <div class="text-[var(--muted)]">IntraGaps 队内距</div><div id="dbgGaps" class="stat-num">—</div>
+            <div class="text-[var(--muted)]">GapThr 切分阈</div><div id="dbgGapThr" class="stat-num">—</div>
+            <div class="text-[var(--muted)]">CarSpan 车长</div><div id="dbgCarSpan" class="stat-num">—</div>
+            <div class="text-[var(--muted)]">Hold 少车秒</div><div id="dbgHold" class="stat-num">—</div>
+            <div class="text-[var(--muted)]">Frame 帧号</div><div id="dbgFrame" class="stat-num">—</div>
+            <div class="text-[var(--muted)]">Step 状态</div><div id="dbgStep" class="stat-num">—</div>
+            <div class="text-[var(--muted)]">Warmup 预热</div><div id="dbgWarmup" class="stat-num">—</div>
+            <div class="text-[var(--muted)]">Appended 入窗</div><div id="dbgAppend" class="stat-num">—</div>
+            <div class="text-[var(--muted)]">Scenario 场景</div><div id="dbgScenario" class="stat-num">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const paramState = {};
+    let ws = null;
+    let paused = false;
+    let running = false;
+    let stepMode = false;
+    let stepWaiting = false;
+
+    // ---- 滑块渲染 ----
+    document.querySelectorAll("[data-param]").forEach((el) => {
+      const key = el.dataset.param;
+      const min = el.dataset.min;
+      const max = el.dataset.max;
+      const step = el.dataset.step;
+      const label = el.dataset.label;
+      el.innerHTML = `
+        <div class="flex justify-between text-xs mb-1">
+          <span class="text-[var(--muted)]">${label}</span>
+          <span id="val_${key}" class="stat-num">—</span>
+        </div>
+        <input id="rng_${key}" type="range" min="${min}" max="${max}" step="${step}" class="w-full" />
+      `;
+      const rng = el.querySelector("input");
+      rng.addEventListener("input", () => {
+        paramState[key] = Number(rng.value);
+        $(`val_${key}`).textContent = formatParam(key, paramState[key]);
+      });
+      rng.addEventListener("change", () => pushParams());
+    });
+
+    function formatParam(key, v) {
+      if (key === "max_long_edge") return String(Math.round(v));
+      if (key === "window_seconds") return Number(v).toFixed(1) + "s";
+      return Number(v).toFixed(2);
+    }
+
+    function applyParamsToUI(params) {
+      Object.entries(params || {}).forEach(([k, v]) => {
+        paramState[k] = v;
+        const rng = $(`rng_${k}`);
+        const val = $(`val_${k}`);
+        if (rng) rng.value = v;
+        if (val) val.textContent = formatParam(k, v);
+      });
+    }
+
+    async function pushParams() {
+      const payload = { params: { ...paramState } };
+      try {
+        await fetch("/api/params", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ action: "update_params", params: paramState }));
+        }
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+
+    // ---- Chart.js（线性时间轴 + 90s 滚动窗口）----
+    const WINDOW_SEC = 90;
+    const CT_THRESHOLD = 60;
+    const Y_AXIS_MAX = 75; // 压缩纵轴，避免 0–100 全幅显得波动过大
+    const chartPoints = [];
+
+    const ctChart = new Chart($("ctChart"), {
+      type: "line",
+      data: {
+        datasets: [
+          {
+            label: "C_t",
+            data: [],
+            borderColor: "#3d8bfd",
+            backgroundColor: "rgba(61,139,253,0.12)",
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.25,
+            fill: true,
+            parsing: false,
+          },
+          {
+            label: "阈值60",
+            data: [],
+            borderColor: "rgba(245,165,36,0.75)",
+            borderWidth: 1.5,
+            borderDash: [6, 4],
+            pointRadius: 0,
+            fill: false,
+            parsing: false,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        scales: {
+          x: {
+            type: "linear",
+            min: 0,
+            max: WINDOW_SEC,
+            ticks: {
+              color: "#8b9aab",
+              maxTicksLimit: 10,
+              callback: (v) => Number(v).toFixed(0) + "s",
+            },
+            grid: { color: "rgba(42,53,66,0.7)" },
+            title: { display: true, text: "视频时间 (s)", color: "#8b9aab", font: { size: 11 } },
+          },
+          y: {
+            min: 0,
+            max: Y_AXIS_MAX,
+            ticks: {
+              color: "#8b9aab",
+              stepSize: 15,
+              callback: (v) => (v === CT_THRESHOLD ? "60▼" : String(v)),
+            },
+            grid: { color: "rgba(42,53,66,0.7)" },
+            title: { display: true, text: "C_t（压缩刻度）", color: "#8b9aab", font: { size: 11 } },
+          },
+        },
+        plugins: {
+          legend: { display: false },
+        },
+      },
+    });
+
+    let lastChartT = -1;
+
+    function syncChartFromPoints(t) {
+      const xMin = chartPoints.length ? Math.max(0, t - WINDOW_SEC) : 0;
+      const xMax = Math.max(t, xMin + 1);
+      ctChart.data.datasets[0].data = chartPoints.map((p) => ({ x: p.x, y: p.y }));
+      ctChart.data.datasets[1].data = [
+        { x: xMin, y: CT_THRESHOLD },
+        { x: xMax, y: CT_THRESHOLD },
+      ];
+      ctChart.options.scales.x.min = xMin;
+      ctChart.options.scales.x.max = xMax;
+      $("chartHint").textContent =
+        `${chartPoints.length} pts · ${xMin.toFixed(0)}–${xMax.toFixed(1)}s · Y 0–${Y_AXIS_MAX}`;
+      ctChart.update("none");
+    }
+
+    function pushChartPoint(t, ct) {
+      if (typeof t !== "number" || !Number.isFinite(t)) return;
+
+      // 视频循环或 seek 导致时间戳回跳 → 清空折线
+      if (lastChartT >= 0 && t < lastChartT - 0.5) {
+        chartPoints.length = 0;
+        lastChartT = -1;
+      }
+
+      // 节流：至少间隔 0.1s 再追加新点
+      if (lastChartT >= 0 && t - lastChartT < 0.1) {
+        if (chartPoints.length) chartPoints[chartPoints.length - 1].y = ct;
+        syncChartFromPoints(t);
+        return;
+      }
+
+      lastChartT = t;
+      chartPoints.push({ x: t, y: ct });
+
+      while (chartPoints.length > 1 && t - chartPoints[0].x > WINDOW_SEC) {
+        chartPoints.shift();
+      }
+
+      syncChartFromPoints(t);
+    }
+
+    function resetChart() {
+      chartPoints.length = 0;
+      lastChartT = -1;
+      ctChart.data.datasets[0].data = [];
+      ctChart.data.datasets[1].data = [];
+      ctChart.options.scales.x.min = 0;
+      ctChart.options.scales.x.max = WINDOW_SEC;
+      ctChart.options.scales.y.min = 0;
+      ctChart.options.scales.y.max = Y_AXIS_MAX;
+      ctChart.update("none");
+      $("chartHint").textContent = "0 pts";
+    }
+
+    function flowFromCt(ct) {
+      return ct < CT_THRESHOLD
+        ? { label: "畅通", cls: "badge-a" }
+        : { label: "拥堵", cls: "badge-c" };
+    }
+
+    // ---- 状态 UI ----
+    function scenarioClass(scenario) {
+      if (scenario === "A_free_flow") return "badge-a";
+      if (scenario === "B_orderly_wait") return "badge-b";
+      if (scenario === "C_stop_and_go") return "badge-c";
+      if (scenario === "D_transition" || scenario === "D_slow_follow") return "badge-d";
+      if (scenario === "E_intersection") return "badge-e";
+      if (scenario === "empty_reset") return "badge-a";
+      if (scenario === "hold_few_vehicles") return "badge-x";
+      return "badge-x";
+    }
+
+    function setDebugVisible(show) {
+      const panel = $("debugPanel");
+      if (panel) panel.style.display = show ? "" : "none";
+    }
+
+    function updateDebugMetrics(m) {
+      const fmt = (v, d = 2) => (v === undefined || v === null ? "—" : Number(v).toFixed(d));
+      $("dbgRaw").textContent = fmt(m.raw_index, 1);
+      $("dbgDt").textContent = fmt(m.median_distance, 1);
+      $("dbgWinMean").textContent = fmt(m.dist_window_mean, 1);
+      $("dbgWinLen").textContent = m.dist_window_len ?? "—";
+      $("dbgSig").textContent = fmt(m.sigma_dist, 2);
+      $("dbgSigSt").textContent = fmt(m.sigma_static, 2);
+      $("dbgVavg").textContent = fmt(m.v_avg, 2);
+      $("dbgVmov").textContent = fmt(m.v_moving_avg, 2);
+      $("dbgRstop").textContent = fmt(m.r_stopped, 2);
+      $("dbgPlatoons").textContent = m.platoon_count ?? "—";
+      $("dbgGaps").textContent = m.intra_gap_count ?? "—";
+      $("dbgGapThr").textContent = fmt(m.gap_threshold, 1);
+      $("dbgCarSpan").textContent = fmt(m.median_bbox_span, 1);
+      $("dbgHold").textContent = fmt(m.hold_empty_seconds, 2) + "s";
+      $("dbgFrame").textContent = m.frame_idx ?? "—";
+      $("dbgStep").textContent = stepMode ? (stepWaiting ? "等待下一帧" : "处理中…") : "连续播放";
+      $("dbgWarmup").textContent = m.dist_warmup_remaining ?? "—";
+      $("dbgAppend").textContent = m.dist_appended ? "是" : "否";
+      $("dbgScenario").textContent = m.scenario_label || m.scenario || "—";
+    }
+
+    function updateStepUI() {
+      const btn = $("btnStepNext");
+      if (btn) {
+        btn.disabled = !running || !stepMode;
+        btn.textContent = stepWaiting ? "下一帧 →" : "处理中…";
+      }
+      const pauseBtn = $("btnPause");
+      if (pauseBtn) {
+        pauseBtn.disabled = !running || stepMode;
+      }
+      const hint = $("stepHint");
+      if (hint && running && stepMode) {
+        hint.textContent = stepWaiting
+          ? "已暂停在本帧。点击「下一帧」或按 → 键前进。"
+          : "正在推理本帧，请稍候…";
+      }
+    }
+
+    function updateMetrics(m) {
+      if (!m) return;
+      const ct = Number(m.congestion_index ?? 0);
+      $("statCt").textContent = ct.toFixed(1);
+      $("statCt").className = `stat-num text-3xl ${ct < CT_THRESHOLD ? "text-[var(--ok)]" : "text-[var(--danger)]"}`;
+      $("statV").textContent = Number(m.v_avg ?? 0).toFixed(2);
+      $("statSig").textContent = Number(m.sigma_dist ?? 0).toFixed(2);
+      $("statN").textContent = String(m.vehicle_count ?? 0);
+      $("procFps").textContent = `FPS ${Number(m.fps ?? 0).toFixed(1)}`;
+      const badge = $("scenarioBadge");
+      const flow = flowFromCt(ct);
+      badge.className = `badge ${flow.cls}`;
+      badge.textContent = flow.label;
+      if ($("debugToggle")?.checked) updateDebugMetrics(m);
+      if (typeof m.metrics_count === "number") {
+        $("exportCount").textContent = String(m.metrics_count);
+      }
+      if (typeof m.timestamp === "number") {
+        pushChartPoint(m.timestamp, ct);
+      }
+    }
+
+    function setRunningUI(isRunning, isPaused, status) {
+      running = isRunning;
+      paused = !!isPaused;
+      if (status) {
+        stepMode = !!status.step_mode;
+        stepWaiting = !!status.step_waiting;
+        if ($("stepModeToggle")) $("stepModeToggle").checked = stepMode;
+        if (typeof status.metrics_count === "number") {
+          $("exportCount").textContent = String(status.metrics_count);
+        }
+      }
+      $("btnStart").disabled = isRunning;
+      $("btnPause").disabled = !isRunning || stepMode;
+      $("btnPause").textContent = isPaused ? "继续" : "暂停";
+      updateStepUI();
+    }
+
+    // ---- API ----
+    async function loadModels() {
+      const res = await fetch("/api/models");
+      const data = await res.json();
+      const sel = $("modelSelect");
+      sel.innerHTML = "";
+      (data.models || []).forEach((m) => {
+        const opt = document.createElement("option");
+        opt.value = m.name;
+        const tag = (m.format || "pt").toUpperCase();
+        opt.textContent = `[${tag}] ${m.name} (${m.size_mb} MB)`;
+        sel.appendChild(opt);
+      });
+      if (!sel.options.length) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "未找到 .onnx/.pt（请检查 my_uav_vehicle_single）";
+        sel.appendChild(opt);
+      }
+    }
+
+    async function loadVideos() {
+      const res = await fetch("/api/videos");
+      const data = await res.json();
+      const sel = $("videoSelect");
+      const prev = sel.value;
+      sel.innerHTML = "";
+      (data.videos || []).forEach((v) => {
+        const opt = document.createElement("option");
+        opt.value = v.path;
+        opt.textContent = `[${v.folder}] ${v.name} (${v.size_mb} MB)`;
+        sel.appendChild(opt);
+      });
+      if (!sel.options.length) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "请上传测试视频";
+        sel.appendChild(opt);
+      } else if (prev) {
+        sel.value = prev;
+      }
+    }
+
+    async function loadParams() {
+      const res = await fetch("/api/params");
+      const data = await res.json();
+      applyParamsToUI(data.params || {});
+    }
+
+    $("videoUpload").addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      if (!res.ok) {
+        alert("上传失败: " + (await res.text()));
+        return;
+      }
+      const data = await res.json();
+      await loadVideos();
+      $("videoSelect").value = data.path;
+    });
+
+    $("btnStart").addEventListener("click", async () => {
+      const model = $("modelSelect").value;
+      const video = $("videoSelect").value;
+      if (!model || !video) {
+        alert("请选择模型与视频");
+        return;
+      }
+      resetChart();
+      const stepOn = !!$("stepModeToggle")?.checked;
+      const res = await fetch("/api/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model, video, params: paramState, step_mode: stepOn }),
+      });
+      if (!res.ok) {
+        alert("启动失败: " + (await res.text()));
+        return;
+      }
+      const data = await res.json();
+      $("videoStream").src = "/video_feed?t=" + Date.now();
+      setRunningUI(true, !!data.status?.paused, data.status);
+    });
+
+    $("btnPause").addEventListener("click", async () => {
+      const res = await fetch("/api/pause", { method: "POST" });
+      const data = await res.json();
+      setRunningUI(true, data.paused, data.status);
+    });
+
+    $("stepModeToggle")?.addEventListener("change", async (e) => {
+      const enabled = e.target.checked;
+      if (!running) {
+        stepMode = enabled;
+        updateStepUI();
+        return;
+      }
+      const res = await fetch("/api/step-mode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+      const data = await res.json();
+      setRunningUI(!!data.status?.running, !!data.status?.paused, data.status);
+    });
+
+    async function doStepNext() {
+      if (!running || !stepMode) return;
+      $("btnStepNext").disabled = true;
+      const res = await fetch("/api/step-next", { method: "POST" });
+      if (!res.ok) {
+        $("btnStepNext").disabled = false;
+        return;
+      }
+      const data = await res.json();
+      setRunningUI(!!data.status?.running, !!data.status?.paused, data.status);
+      if (data.status?.metrics) updateMetrics(data.status.metrics);
+    }
+
+    $("btnStepNext")?.addEventListener("click", () => doStepNext());
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight" && stepMode && running && !e.repeat) {
+        e.preventDefault();
+        doStepNext();
+      }
+    });
+
+    $("btnReset").addEventListener("click", async () => {
+      await fetch("/api/reset", { method: "POST" });
+      setRunningUI(false, false);
+      resetChart();
+      $("videoStream").src = "/video_feed?t=" + Date.now();
+      $("scenarioBadge").className = "badge badge-x";
+      $("scenarioBadge").textContent = "就绪";
+      $("statCt").className = "stat-num text-3xl text-[var(--accent)]";
+      stepMode = false;
+      stepWaiting = false;
+      if ($("stepModeToggle")) $("stepModeToggle").checked = false;
+      updateStepUI();
+    });
+
+    $("debugToggle")?.addEventListener("change", (e) => {
+      setDebugVisible(e.target.checked);
+    });
+
+    $("btnExportCsv")?.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/export/metrics.csv");
+        if (!res.ok) {
+          const msg = await res.text();
+          alert(msg || "导出失败：暂无数据");
+          return;
+        }
+        const blob = await res.blob();
+        const disp = res.headers.get("Content-Disposition") || "";
+        const match = disp.match(/filename=\"?([^\";]+)\"?/);
+        const filename = match ? match[1] : `congestion_metrics_${Date.now()}.csv`;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        alert("导出失败: " + e);
+      }
+    });
+
+    // ---- WebSocket ----
+    function connectWs() {
+      const proto = location.protocol === "https:" ? "wss" : "ws";
+      ws = new WebSocket(`${proto}://${location.host}/ws`);
+      ws.onopen = () => {
+        $("connDot").className = "inline-block w-2.5 h-2.5 rounded-full bg-emerald-400";
+        $("connText").textContent = "WebSocket 已连接";
+      };
+      ws.onclose = () => {
+        $("connDot").className = "inline-block w-2.5 h-2.5 rounded-full bg-red-500";
+        $("connText").textContent = "WebSocket 断开，重连中…";
+        setTimeout(connectWs, 1500);
+      };
+      ws.onerror = () => ws.close();
+      ws.onmessage = (ev) => {
+        let msg;
+        try { msg = JSON.parse(ev.data); } catch { return; }
+        if (msg.type === "ping" || msg.type === "pong") return;
+        if (msg.type === "status") {
+          setRunningUI(!!msg.running, !!msg.paused, msg);
+          if (msg.metrics) updateMetrics(msg.metrics);
+          return;
+        }
+        if (msg.congestion_index !== undefined) {
+          updateMetrics(msg);
+          if (msg.step_mode !== undefined) {
+            stepMode = !!msg.step_mode;
+            stepWaiting = !!msg.step_waiting;
+            updateStepUI();
+          }
+        }
+      };
+    }
+
+    (async function init() {
+      await Promise.all([loadModels(), loadVideos(), loadParams()]);
+      connectWs();
+      const st = await (await fetch("/api/status")).json();
+      setRunningUI(!!st.running, !!st.paused, st);
+      if (st.metrics) updateMetrics(st.metrics);
+    })();
+  </script>
+</body>
+</html>

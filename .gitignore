@@ -1,0 +1,70 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Env / secrets / credentials
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+secrets/
+credentials*
+id_rsa
+id_ed25519
+
+# Android / Java leftovers
+local.properties
+*.apk
+*.ap_
+*.aab
+*.dex
+*.class
+build/
+.gradle/
+
+# Datasets / runtime media
+data/
+uploads/
+videos/
+*.mp4
+*.MP4
+*.avi
+*.mkv
+*.mov
+*.webm
+
+# Model weights (GitHub 100MB limit; ONNX ~101MB)
+*.pt
+*.pth
+*.onnx
+*.engine
+*.weights
+*.bin
+*.safetensors
+**/weights/
+
+# OS / IDE
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+.cursor/
+
+# Jupyter
+.ipynb_checkpoints/

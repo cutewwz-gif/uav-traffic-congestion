@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VisDrone 迁移训练 · PPT 素材</title>
+  <style>
+    :root {
+      --bg: #10161e;
+      --panel: #1a2330;
+      --line: #334155;
+      --text: #e8eef5;
+      --muted: #8b9bb0;
+      --teal: #2f9e8f;
+      --blue: #4a8fd4;
+      --amber: #d4a24a;
+      --rose: #c46b6b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0a0e13;
+      color: var(--text);
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+      align-items: center;
+    }
+    .slide {
+      width: min(96vw, 1440px);
+      aspect-ratio: 16 / 9;
+      background:
+        radial-gradient(ellipse 70% 45% at 20% 0%, rgba(74,143,212,.12), transparent 55%),
+        radial-gradient(ellipse 50% 40% at 90% 100%, rgba(47,158,143,.1), transparent 50%),
+        var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 28px 36px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow: hidden;
+    }
+    .slide h1 {
+      font-size: clamp(22px, 2.1vw, 30px);
+      font-weight: 650;
+      letter-spacing: .02em;
+    }
+    .slide .sub {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .hdr {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 16px;
+    }
+    .tag {
+      font-size: 12px;
+      color: var(--blue);
+      background: rgba(74,143,212,.15);
+      border: 1px solid rgba(74,143,212,.35);
+      padding: 6px 12px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+    .note {
+      width: min(96vw, 1440px);
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .note code {
+      color: #c5d4e8;
+      background: #1a2330;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+
+    /* ===== Slide 1: pipeline + aerial concept ===== */
+    .pipeline {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1.05fr 1.35fr;
+      gap: 18px;
+      min-height: 0;
+    }
+    .aerial {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 0;
+    }
+    .aerial h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #c5d4e8;
+    }
+    .aerial svg { width: 100%; height: auto; flex: 1; }
+    .stages {
+      display: grid;
+      grid-template-rows: repeat(3, 1fr);
+      gap: 12px;
+      min-height: 0;
+    }
+    .stage {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 14px 16px;
+      display: grid;
+      grid-template-columns: 56px 1fr;
+      gap: 14px;
+      align-items: center;
+      position: relative;
+    }
+    .stage::after {
+      content: "";
+      position: absolute;
+      left: 34px;
+      bottom: -13px;
+      width: 2px;
+      height: 12px;
+      background: var(--teal);
+      opacity: .7;
+    }
+    .stage:last-child::after { display: none; }
+    .num {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 18px;
+    }
+    .s1 .num { background: rgba(74,143,212,.18); color: var(--blue); }
+    .s2 .num { background: rgba(47,158,143,.18); color: var(--teal); }
+    .s3 .num { background: rgba(212,162,74,.18); color: var(--amber); }
+    .stage h4 { font-size: 16px; margin-bottom: 4px; }
+    .stage p { font-size: 12px; color: var(--muted); line-height: 1.45; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .chip {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.04);
+      color: #c5d4e8;
+    }
+
+    /* ===== Slide 2: curves ===== */
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    .metric {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+    .metric .k { font-size: 12px; color: var(--muted); }
+    .metric .v { font-size: 26px; font-weight: 700; margin-top: 4px; letter-spacing: .01em; }
+    .metric .s { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .metric.teal .v { color: var(--teal); }
+    .metric.blue .v { color: var(--blue); }
+    .charts {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      min-height: 0;
+    }
+    .chart {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px 14px 10px;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .chart h3 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .chart .cap {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .chart svg { width: 100%; flex: 1; min-height: 180px; }
+    .legend {
+      display: flex;
+      gap: 14px;
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+    .legend i {
+      display: inline-block;
+      width: 14px;
+      height: 3px;
+      border-radius: 2px;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+    .foot {
+      font-size: 11px;
+      color: var(--muted);
+      border-top: 1px solid rgba(51,65,85,.7);
+      padding-top: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ========== SLIDE A：VisDrone 基座与两阶段流程 ========== -->
+  <section class="slide" id="slide-pipeline">
+    <div class="hdr">
+      <div>
+        <h1>基于 VisDrone 的两阶段迁移训练</h1>
+        <p class="sub">公开 UAV 检测基座 → 域适应 → 自建场景微调</p>
+      </div>
+      <div class="tag">YOLOv12 · Transfer Learning</div>
+    </div>
+
+    <div class="pipeline">
+      <div class="aerial">
+        <h3>VisDrone 俯视交通场景（示意）</h3>
+        <!-- Conceptual aerial traffic view — not a real photo -->
+        <svg viewBox="0 0 520 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="VisDrone aerial concept">
+          <defs>
+            <linearGradient id="road" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#2a3545"/>
+              <stop offset="100%" stop-color="#1e2836"/>
+            </linearGradient>
+            <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse">
+              <path d="M28 0H0V28" fill="none" stroke="#2c384a" stroke-width=".6"/>
+            </pattern>
+          </defs>
+          <rect width="520" height="420" fill="#15202c"/>
+          <rect width="520" height="420" fill="url(#grid)" opacity=".55"/>
+
+          <!-- roads -->
+          <rect x="0" y="175" width="520" height="78" fill="url(#road)"/>
+          <rect x="210" y="0" width="78" height="420" fill="url(#road)"/>
+          <line x1="0" y1="214" x2="210" y2="214" stroke="#d4a24a" stroke-width="2" stroke-dasharray="10 12" opacity=".55"/>
+          <line x1="288" y1="214" x2="520" y2="214" stroke="#d4a24a" stroke-width="2" stroke-dasharray="10 12" opacity=".55"/>
+          <line x1="249" y1="0" x2="249" y2="175" stroke="#d4a24a" stroke-width="2" stroke-dasharray="10 12" opacity=".55"/>
+          <line x1="249" y1="253" x2="249" y2="420" stroke="#d4a24a" stroke-width="2" stroke-dasharray="10 12" opacity=".55"/>
+
+          <!-- buildings blocks -->
+          <rect x="28" y="28" width="150" height="110" rx="4" fill="#243142" stroke="#3a4d63"/>
+          <rect x="320" y="36" width="170" height="100" rx="4" fill="#243142" stroke="#3a4d63"/>
+          <rect x="36" y="290" width="140" height="100" rx="4" fill="#243142" stroke="#3a4d63"/>
+          <rect x="330" y="290" width="160" height="100" rx="4" fill="#243142" stroke="#3a4d63"/>
+
+          <!-- vehicles as top-down boxes (VisDrone style detections) -->
+          <g id="cars">
+            <rect x="40" y="190" width="34" height="16" rx="2" fill="#4a8fd4" opacity=".9"/>
+            <rect x="90" y="205" width="36" height="16" rx="2" fill="#2f9e8f" opacity=".9"/>
+            <rect x="145" y="188" width="32" height="15" rx="2" fill="#4a8fd4" opacity=".85"/>
+            <rect x="320" y="198" width="38" height="17" rx="2" fill="#c46b6b" opacity=".9"/>
+            <rect x="380" y="212" width="34" height="15" rx="2" fill="#2f9e8f" opacity=".9"/>
+            <rect x="440" y="190" width="36" height="16" rx="2" fill="#4a8fd4" opacity=".85"/>
+
+            <rect x="225" y="40" width="16" height="34" rx="2" fill="#d4a24a" opacity=".9"/>
+            <rect x="242" y="95" width="15" height="32" rx="2" fill="#4a8fd4" opacity=".9"/>
+            <rect x="222" y="280" width="16" height="36" rx="2" fill="#2f9e8f" opacity=".9"/>
+            <rect x="245" y="340" width="15" height="34" rx="2" fill="#c46b6b" opacity=".9"/>
+
+            <!-- queued congestion cluster -->
+            <rect x="300" y="186" width="28" height="14" rx="2" fill="#c46b6b" opacity=".95"/>
+            <rect x="300" y="204" width="28" height="14" rx="2" fill="#c46b6b" opacity=".85"/>
+            <rect x="300" y="222" width="28" height="14" rx="2" fill="#c46b6b" opacity=".75"/>
+          </g>
+
+          <!-- detection boxes -->
+          <g fill="none" stroke="#7dd3c0" stroke-width="1.4" opacity=".85">
+            <rect x="36" y="186" width="42" height="24" rx="1"/>
+            <rect x="86" y="201" width="44" height="24" rx="1"/>
+            <rect x="316" y="194" width="46" height="25" rx="1"/>
+            <rect x="218" y="36" width="28" height="42" rx="1"/>
+            <rect x="296" y="182" width="36" height="58" rx="1"/>
+          </g>
+          <g font-size="10" fill="#7dd3c0" font-family="Consolas, monospace">
+            <text x="36" y="182">car 0.93</text>
+            <text x="316" y="190">car 0.91</text>
+            <text x="218" y="32">car 0.88</text>
+          </g>
+
+          <!-- drone view frustum hint -->
+          <path d="M260 8 L200 70 L320 70 Z" fill="rgba(74,143,212,.12)" stroke="#4a8fd4" stroke-width="1"/>
+          <circle cx="260" cy="8" r="5" fill="#4a8fd4"/>
+          <text x="272" y="12" font-size="11" fill="#8b9bb0">UAV / VisDrone view</text>
+
+          <text x="16" y="408" font-size="11" fill="#8b9bb0">示意：俯视道路 · 车辆顶视框 · 目标检测标注风格</text>
+        </svg>
+      </div>
+
+      <div class="stages">
+        <div class="stage s1">
+          <div class="num">1</div>
+          <div>
+            <h4>VisDrone 预训练基座</h4>
+            <p>采用 VisDrone 训练得到的 YOLO 权重，具备通用无人机俯视车辆检测能力。</p>
+            <div class="chips">
+              <span class="chip">visdrone_yolo*_best.pt</span>
+              <span class="chip">公开 UAV 数据集</span>
+            </div>
+          </div>
+        </div>
+        <div class="stage s2">
+          <div class="num">2</div>
+          <div>
+            <h4>阶段一：VisDrone 域适应</h4>
+            <p>在 VisDrone 合并数据上继续训练，输入 1280，50 epoch，batch=4。</p>
+            <div class="chips">
+              <span class="chip">my_uav_from_visdrone</span>
+              <span class="chip">mAP@0.5 → 91.2%</span>
+            </div>
+          </div>
+        </div>
+        <div class="stage s3">
+          <div class="num">3</div>
+          <div>
+            <h4>阶段二：自建场景微调</h4>
+            <p>以阶段一 best 为起点，在 X-AnyLabeling 自标注数据上微调 40 epoch。</p>
+            <div class="chips">
+              <span class="chip">my_uav_vehicle_single</span>
+              <span class="chip">mAP@0.5 → 97.7%</span>
+              <span class="chip">导出 ONNX</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="foot">素材说明：左侧为概念示意（非真实 VisDrone 原图）；流程与指标来自本项目训练记录。</div>
+  </section>
+
+  <!-- ========== SLIDE B：真实训练曲线 ========== -->
+  <section class="slide" id="slide-curves">
+    <div class="hdr">
+      <div>
+        <h1>VisDrone 迁移训练曲线</h1>
+        <p class="sub">数据来源：results.csv（域适应 50 epoch · 自建微调 40 epoch）</p>
+      </div>
+      <div class="tag">真实验证集指标</div>
+    </div>
+
+    <div class="metrics-row">
+      <div class="metric blue">
+        <div class="k">阶段一 · mAP@0.5</div>
+        <div class="v">91.2%</div>
+        <div class="s">VisDrone 域适应 · epoch 50</div>
+      </div>
+      <div class="metric blue">
+        <div class="k">阶段一 · P / R</div>
+        <div class="v" style="font-size:22px">94.5 / 86.3</div>
+        <div class="s">Precision · Recall (%)</div>
+      </div>
+      <div class="metric teal">
+        <div class="k">阶段二 · mAP@0.5</div>
+        <div class="v">97.7%</div>
+        <div class="s">自建数据微调 · epoch 40</div>
+      </div>
+      <div class="metric teal">
+        <div class="k">阶段二 · P / R</div>
+        <div class="v" style="font-size:22px">95.3 / 95.9</div>
+        <div class="s">Precision · Recall (%)</div>
+      </div>
+    </div>
+
+    <div class="charts">
+      <div class="chart">
+        <h3>阶段一：VisDrone 域适应</h3>
+        <div class="cap">my_uav_from_visdrone · imgsz=1280 · 50 epoch</div>
+        <svg id="chart1" viewBox="0 0 560 260" preserveAspectRatio="none"></svg>
+        <div class="legend">
+          <span><i style="background:#4a8fd4"></i>mAP@0.5</span>
+          <span><i style="background:#2f9e8f"></i>mAP@0.5:0.95</span>
+        </div>
+      </div>
+      <div class="chart">
+        <h3>阶段二：自建场景微调</h3>
+        <div class="cap">my_uav_vehicle_single · 承接阶段一 best · 40 epoch</div>
+        <svg id="chart2" viewBox="0 0 560 260" preserveAspectRatio="none"></svg>
+        <div class="legend">
+          <span><i style="background:#4a8fd4"></i>mAP@0.5</span>
+          <span><i style="background:#2f9e8f"></i>mAP@0.5:0.95</span>
+        </div>
+      </div>
+    </div>
+    <div class="foot">截图建议：整页 16:9 全屏截取，可直接放入「YOLOv12 两阶段迁移学习」PPT 页。</div>
+  </section>
+
+  <p class="note">文件路径：<code>D:\finalpr\visdrone_training.html</code> · 本页含 2 张 16:9 素材（流程示意 + 训练曲线）</p>
+
+  <script>
+    const S1 = [{"epoch":1,"map50":0.85916,"map95":0.67202},{"epoch":2,"map50":0.88511,"map95":0.64005},{"epoch":3,"map50":0.89355,"map95":0.67631},{"epoch":4,"map50":0.909,"map95":0.72933},{"epoch":5,"map50":0.8912,"map95":0.69096},{"epoch":6,"map50":0.90662,"map95":0.72497},{"epoch":7,"map50":0.90128,"map95":0.70182},{"epoch":8,"map50":0.88611,"map95":0.70565},{"epoch":9,"map50":0.90743,"map95":0.72981},{"epoch":10,"map50":0.90897,"map95":0.75261},{"epoch":11,"map50":0.91174,"map95":0.75128},{"epoch":12,"map50":0.89199,"map95":0.72637},{"epoch":13,"map50":0.91045,"map95":0.73887},{"epoch":14,"map50":0.89982,"map95":0.74636},{"epoch":15,"map50":0.90523,"map95":0.75643},{"epoch":16,"map50":0.90558,"map95":0.74087},{"epoch":17,"map50":0.91006,"map95":0.7465},{"epoch":18,"map50":0.89771,"map95":0.73678},{"epoch":19,"map50":0.89891,"map95":0.7374},{"epoch":20,"map50":0.90891,"map95":0.73687},{"epoch":21,"map50":0.90801,"map95":0.75903},{"epoch":22,"map50":0.90833,"map95":0.76837},{"epoch":23,"map50":0.90949,"map95":0.75482},{"epoch":24,"map50":0.91134,"map95":0.7666},{"epoch":25,"map50":0.89815,"map95":0.74687},{"epoch":26,"map50":0.90162,"map95":0.75646},{"epoch":27,"map50":0.89768,"map95":0.75647},{"epoch":28,"map50":0.89377,"map95":0.76106},{"epoch":29,"map50":0.90283,"map95":0.74016},{"epoch":30,"map50":0.90274,"map95":0.74388},{"epoch":31,"map50":0.89656,"map95":0.7356},{"epoch":32,"map50":0.9079,"map95":0.75364},{"epoch":33,"map50":0.90715,"map95":0.75007},{"epoch":34,"map50":0.88944,"map95":0.73319},{"epoch":35,"map50":0.90295,"map95":0.74712},{"epoch":36,"map50":0.91584,"map95":0.76675},{"epoch":37,"map50":0.91604,"map95":0.775},{"epoch":38,"map50":0.91639,"map95":0.77285},{"epoch":39,"map50":0.91542,"map95":0.7851},{"epoch":40,"map50":0.91025,"map95":0.76259},{"epoch":41,"map50":0.90891,"map95":0.75492},{"epoch":42,"map50":0.90991,"map95":0.76643},{"epoch":43,"map50":0.91117,"map95":0.76357},{"epoch":44,"map50":0.91158,"map95":0.76491},{"epoch":45,"map50":0.91286,"map95":0.76745},{"epoch":46,"map50":0.91533,"map95":0.77678},{"epoch":47,"map50":0.91464,"map95":0.77465},{"epoch":48,"map50":0.91373,"map95":0.77368},{"epoch":49,"map50":0.91309,"map95":0.77407},{"epoch":50,"map50":0.91245,"map95":0.77332}];
+    const S2 = [{"epoch":1,"map50":0.96976,"map95":0.76811},{"epoch":2,"map50":0.97885,"map95":0.76247},{"epoch":3,"map50":0.96696,"map95":0.73672},{"epoch":4,"map50":0.97327,"map95":0.74118},{"epoch":5,"map50":0.97073,"map95":0.76015},{"epoch":6,"map50":0.9715,"map95":0.76629},{"epoch":7,"map50":0.9736,"map95":0.77664},{"epoch":8,"map50":0.96965,"map95":0.77656},{"epoch":9,"map50":0.97437,"map95":0.79598},{"epoch":10,"map50":0.97428,"map95":0.75896},{"epoch":11,"map50":0.97566,"map95":0.80062},{"epoch":12,"map50":0.9769,"map95":0.81096},{"epoch":13,"map50":0.97096,"map95":0.78537},{"epoch":14,"map50":0.97827,"map95":0.80477},{"epoch":15,"map50":0.98096,"map95":0.81547},{"epoch":16,"map50":0.9762,"map95":0.80325},{"epoch":17,"map50":0.97379,"map95":0.79521},{"epoch":18,"map50":0.97643,"map95":0.80056},{"epoch":19,"map50":0.97668,"map95":0.80473},{"epoch":20,"map50":0.97629,"map95":0.82132},{"epoch":21,"map50":0.98515,"map95":0.81952},{"epoch":22,"map50":0.98674,"map95":0.82102},{"epoch":23,"map50":0.97794,"map95":0.81815},{"epoch":24,"map50":0.97815,"map95":0.82015},{"epoch":25,"map50":0.97752,"map95":0.80349},{"epoch":26,"map50":0.97849,"map95":0.8224},{"epoch":27,"map50":0.97786,"map95":0.81273},{"epoch":28,"map50":0.97818,"map95":0.80899},{"epoch":29,"map50":0.97972,"map95":0.81508},{"epoch":30,"map50":0.98775,"map95":0.82466},{"epoch":31,"map50":0.97858,"map95":0.81918},{"epoch":32,"map50":0.9782,"map95":0.82},{"epoch":33,"map50":0.97811,"map95":0.81992},{"epoch":34,"map50":0.97567,"map95":0.81242},{"epoch":35,"map50":0.97558,"map95":0.816},{"epoch":36,"map50":0.97627,"map95":0.8211},{"epoch":37,"map50":0.97721,"map95":0.82348},{"epoch":38,"map50":0.97687,"map95":0.82213},{"epoch":39,"map50":0.97627,"map95":0.82312},{"epoch":40,"map50":0.97676,"map95":0.82553}];
+
+    function drawChart(svgId, data, yMin, yMax) {
+      const svg = document.getElementById(svgId);
+      const W = 560, H = 260;
+      const pad = { l: 44, r: 16, t: 12, b: 28 };
+      const iw = W - pad.l - pad.r;
+      const ih = H - pad.t - pad.b;
+      const n = data.length;
+      const xOf = (i) => pad.l + (i / (n - 1)) * iw;
+      const yOf = (v) => pad.t + (1 - (v - yMin) / (yMax - yMin)) * ih;
+
+      const grid = [];
+      for (let g = 0; g <= 4; g++) {
+        const v = yMin + (yMax - yMin) * (g / 4);
+        const y = yOf(v);
+        grid.push(`<line x1="${pad.l}" y1="${y}" x2="${W - pad.r}" y2="${y}" stroke="#2a3648" stroke-width="1"/>`);
+        grid.push(`<text x="${pad.l - 8}" y="${y + 4}" text-anchor="end" fill="#8b9bb0" font-size="11">${(v * 100).toFixed(0)}%</text>`);
+      }
+
+      const xTicks = [1, Math.round(n / 2), n];
+      const xt = xTicks.map((ep) => {
+        const i = ep - 1;
+        return `<text x="${xOf(i)}" y="${H - 8}" text-anchor="middle" fill="#8b9bb0" font-size="11">${ep}</text>`;
+      }).join("");
+
+      const line = (key, color) => {
+        const d = data.map((r, i) => `${i === 0 ? "M" : "L"}${xOf(i).toFixed(1)},${yOf(r[key]).toFixed(1)}`).join(" ");
+        return `<path d="${d}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
+      };
+
+      svg.innerHTML = `
+        <rect x="0" y="0" width="${W}" height="${H}" fill="transparent"/>
+        ${grid.join("")}
+        ${line("map95", "#2f9e8f")}
+        ${line("map50", "#4a8fd4")}
+        ${xt}
+        <text x="${W / 2}" y="${H - 1}" text-anchor="middle" fill="#6b7c90" font-size="10">epoch</text>
+      `;
+    }
+
+    drawChart("chart1", S1, 0.60, 0.95);
+    drawChart("chart2", S2, 0.70, 1.00);
+  </script>
+</body>
+</html>

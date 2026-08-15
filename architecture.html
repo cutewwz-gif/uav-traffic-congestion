@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>无人机道路拥堵分析系统 · 技术逻辑架构</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a222d;
+      --panel-2: #232d3b;
+      --line: #3a4a5c;
+      --text: #e8eef5;
+      --muted: #8b9bb0;
+      --accent: #2f9e8f;
+      --accent-soft: rgba(47, 158, 143, 0.18);
+      --blue: #4a8fd4;
+      --blue-soft: rgba(74, 143, 212, 0.16);
+      --amber: #d4a24a;
+      --amber-soft: rgba(212, 162, 74, 0.16);
+      --rose: #c46b6b;
+      --rose-soft: rgba(196, 107, 107, 0.16);
+      --violet: #8b7ec8;
+      --violet-soft: rgba(139, 126, 200, 0.16);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    /* 16:9 画布，便于 PPT 截图 */
+    .slide {
+      width: min(96vw, 1440px);
+      aspect-ratio: 16 / 9;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(47, 158, 143, 0.12), transparent 55%),
+        radial-gradient(ellipse 40% 40% at 100% 100%, rgba(74, 143, 212, 0.08), transparent 50%),
+        var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 28px 36px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      flex-shrink: 0;
+    }
+
+    .header h1 {
+      font-size: clamp(22px, 2.2vw, 32px);
+      font-weight: 650;
+      letter-spacing: 0.02em;
+      line-height: 1.2;
+    }
+
+    .header .sub {
+      margin-top: 6px;
+      font-size: clamp(12px, 1.05vw, 15px);
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    .badge {
+      flex-shrink: 0;
+      font-size: 12px;
+      color: var(--accent);
+      background: var(--accent-soft);
+      border: 1px solid rgba(47, 158, 143, 0.35);
+      padding: 6px 12px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .layers {
+      flex: 1;
+      display: grid;
+      grid-template-rows: 1fr 1.15fr 1.35fr 0.95fr;
+      gap: 10px;
+      min-height: 0;
+    }
+
+    .layer {
+      display: grid;
+      gap: 10px;
+      min-height: 0;
+    }
+
+    .layer-label {
+      writing-mode: vertical-lr;
+      text-orientation: upright;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 4px;
+      width: 28px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 10px;
+      min-height: 0;
+    }
+
+    .cards {
+      display: grid;
+      gap: 10px;
+      min-height: 0;
+    }
+
+    .L1 .cards { grid-template-columns: 1.1fr 1fr 1.2fr; }
+    .L2 .cards { grid-template-columns: 1fr 1.4fr 1fr; }
+    .L3 .cards { grid-template-columns: 1.15fr 1fr 1.25fr; }
+    .L4 .cards { grid-template-columns: repeat(4, 1fr); }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 0;
+      position: relative;
+    }
+
+    .card.core {
+      background: linear-gradient(160deg, var(--panel-2), var(--panel));
+      border-color: rgba(47, 158, 143, 0.55);
+      box-shadow: inset 0 0 0 1px rgba(47, 158, 143, 0.12);
+    }
+
+    .card-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: clamp(13px, 1.15vw, 16px);
+      font-weight: 600;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .dot.teal { background: var(--accent); }
+    .dot.blue { background: var(--blue); }
+    .dot.amber { background: var(--amber); }
+    .dot.rose { background: var(--rose); }
+    .dot.violet { background: var(--violet); }
+
+    .file {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: Consolas, "Cascadia Mono", monospace;
+    }
+
+    .items {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .chip {
+      font-size: 11px;
+      line-height: 1.3;
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid transparent;
+      color: var(--text);
+    }
+
+    .chip.teal { background: var(--accent-soft); border-color: rgba(47, 158, 143, 0.3); }
+    .chip.blue { background: var(--blue-soft); border-color: rgba(74, 143, 212, 0.3); }
+    .chip.amber { background: var(--amber-soft); border-color: rgba(212, 162, 74, 0.3); }
+    .chip.rose { background: var(--rose-soft); border-color: rgba(196, 107, 107, 0.3); }
+    .chip.violet { background: var(--violet-soft); border-color: rgba(139, 126, 200, 0.3); }
+    .chip.plain {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: var(--line);
+      color: var(--muted);
+    }
+
+    .flow {
+      margin-top: auto;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .flow strong {
+      color: var(--text);
+      font-weight: 550;
+    }
+
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+      margin-top: 2px;
+    }
+
+    .step {
+      background: rgba(0, 0, 0, 0.22);
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      padding: 6px 8px;
+      text-align: center;
+      font-size: 11px;
+      line-height: 1.35;
+      position: relative;
+    }
+
+    .step::after {
+      content: "→";
+      position: absolute;
+      right: -9px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--accent);
+      font-size: 12px;
+      z-index: 1;
+    }
+
+    .step:last-child::after { content: none; }
+
+    .step b {
+      display: block;
+      color: var(--text);
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .footer {
+      flex-shrink: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding-top: 4px;
+      border-top: 1px solid rgba(58, 74, 92, 0.6);
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .legend {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .hint {
+      opacity: 0.75;
+    }
+
+    @media (max-width: 900px) {
+      body { padding: 8px; align-items: flex-start; }
+      .slide {
+        width: 100%;
+        aspect-ratio: auto;
+        min-height: auto;
+        height: auto;
+      }
+      .layers { grid-template-rows: none; }
+      .L1 .cards,
+      .L2 .cards,
+      .L3 .cards,
+      .L4 .cards { grid-template-columns: 1fr; }
+      .pipeline { grid-template-columns: 1fr 1fr; }
+      .step::after { content: none; }
+      .layer-label {
+        writing-mode: horizontal-tb;
+        text-orientation: mixed;
+        width: auto;
+        letter-spacing: 0.08em;
+        padding: 4px 10px;
+      }
+      .row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="slide">
+    <header class="header">
+      <div>
+        <h1>无人机道路拥堵分析系统 · 技术逻辑架构</h1>
+        <p class="sub">UAV 视频检测 → 轨迹清洗 → 拥堵指数状态机 → 实时可视化推送</p>
+      </div>
+      <div class="badge">FastAPI · YOLO/ONNX · DirectML · WebSocket</div>
+    </header>
+
+    <div class="layers">
+      <!-- L1 交互层 -->
+      <section class="layer L1">
+        <div class="row">
+          <div class="layer-label">交互呈现</div>
+          <div class="cards">
+            <div class="card">
+              <div class="card-title"><span class="dot blue"></span>浏览器前端</div>
+              <div class="file">templates/index.html</div>
+              <div class="items">
+                <span class="chip blue">模型 / 视频选择</span>
+                <span class="chip blue">参数热更新</span>
+                <span class="chip blue">逐帧调试</span>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title"><span class="dot blue"></span>实时画面</div>
+              <div class="file">MJPEG · /video_feed</div>
+              <div class="items">
+                <span class="chip blue">检测框</span>
+                <span class="chip blue">Track ID</span>
+                <span class="chip blue">拥堵状态叠加</span>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title"><span class="dot blue"></span>指标面板</div>
+              <div class="file">WebSocket · /ws</div>
+              <div class="items">
+                <span class="chip blue">拥堵指数 C_t</span>
+                <span class="chip blue">速度 / σ_dist</span>
+                <span class="chip blue">场景标签</span>
+                <span class="chip plain">CSV 导出</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- L2 服务层 -->
+      <section class="layer L2">
+        <div class="row">
+          <div class="layer-label">服务编排</div>
+          <div class="cards">
+            <div class="card">
+              <div class="card-title"><span class="dot violet"></span>启动入口</div>
+              <div class="file">run_gui.py · app.py</div>
+              <div class="items">
+                <span class="chip violet">uvicorn</span>
+                <span class="chip violet">自动开浏览器</span>
+                <span class="chip plain">server_config</span>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title"><span class="dot violet"></span>FastAPI 控制面</div>
+              <div class="file">REST · /api/*</div>
+              <div class="items">
+                <span class="chip violet">start / stop / pause</span>
+                <span class="chip violet">upload</span>
+                <span class="chip violet">params</span>
+                <span class="chip violet">step-next</span>
+              </div>
+              <p class="flow">订阅引擎回调 → <strong>MetricsHub</strong> 广播给全部 WebSocket 客户端</p>
+            </div>
+            <div class="card">
+              <div class="card-title"><span class="dot violet"></span>资源目录</div>
+              <div class="file">models · videos · uploads</div>
+              <div class="items">
+                <span class="chip violet">my_uav_vehicle_single</span>
+                <span class="chip plain">ONNX 优先 / PT 备选</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- L3 引擎层 -->
+      <section class="layer L3">
+        <div class="row">
+          <div class="layer-label">实时引擎</div>
+          <div class="cards">
+            <div class="card">
+              <div class="card-title"><span class="dot amber"></span>VideoAnalysisEngine</div>
+              <div class="file">analyzer.py</div>
+              <div class="items">
+                <span class="chip amber">Producer 读帧+推理</span>
+                <span class="chip amber">Consumer JPEG 推流</span>
+                <span class="chip amber">隔帧检测 N=2</span>
+                <span class="chip amber">轨迹预测补帧</span>
+                <span class="chip plain">锁帧 30 FPS</span>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title"><span class="dot amber"></span>推理加速</div>
+              <div class="file">ort_dml.py · Ultralytics YOLO</div>
+              <div class="items">
+                <span class="chip amber">ONNX Runtime</span>
+                <span class="chip amber">DirectML (GPU)</span>
+                <span class="chip plain">长边缩放 640</span>
+              </div>
+            </div>
+            <div class="card core">
+              <div class="card-title"><span class="dot teal"></span>算法管线（核心）</div>
+              <div class="file">traffic_analysis/*</div>
+              <div class="pipeline">
+                <div class="step"><b>检测跟踪</b>bbox + track_id</div>
+                <div class="step"><b>DataCleaner</b>EMA · 死区</div>
+                <div class="step"><b>车队切分</b>platoon gap</div>
+                <div class="step"><b>状态机</b>A–E 场景</div>
+                <div class="step"><b>EMA 输出</b>拥堵指数</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- L4 算法细节 -->
+      <section class="layer L4">
+        <div class="row">
+          <div class="layer-label">算法内核</div>
+          <div class="cards">
+            <div class="card core">
+              <div class="card-title"><span class="dot teal"></span>CongestionCalculator</div>
+              <div class="file">calculator.py</div>
+              <div class="items">
+                <span class="chip teal">速度子分</span>
+                <span class="chip teal">波动子分 σ</span>
+                <span class="chip teal">路口降分</span>
+                <span class="chip teal">Hold 衰减</span>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title"><span class="dot teal"></span>DataCleaner</div>
+              <div class="file">data_cleaner.py</div>
+              <div class="items">
+                <span class="chip teal">坐标 EMA</span>
+                <span class="chip teal">位移死区</span>
+                <span class="chip plain">滑动窗口</span>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title"><span class="dot teal"></span>CongestionConfig</div>
+              <div class="file">config.py</div>
+              <div class="items">
+                <span class="chip teal">α / β 权重</span>
+                <span class="chip teal">v / σ 阈值</span>
+                <span class="chip plain">窗口秒数</span>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title"><span class="dot rose"></span>场景判别</div>
+              <div class="file">连续响应式状态机</div>
+              <div class="items">
+                <span class="chip rose">A 畅通</span>
+                <span class="chip rose">B 有序等待</span>
+                <span class="chip rose">C 走走停停</span>
+                <span class="chip rose">D 慢速跟车</span>
+                <span class="chip rose">E 路口等灯</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer class="footer">
+      <div class="legend">
+        <span><i class="dot blue"></i>交互层</span>
+        <span><i class="dot violet"></i>服务层</span>
+        <span><i class="dot amber"></i>引擎层</span>
+        <span><i class="dot teal"></i>算法核心</span>
+        <span><i class="dot rose"></i>场景输出</span>
+      </div>
+      <div class="hint">数据流：视频帧 → YOLO 检测 → 清洗轨迹 → 拥堵指数 → MJPEG + WebSocket</div>
+    </footer>
+  </div>
+</body>
+</html>
